@@ -1,10 +1,10 @@
 <div class="chat">
-    <div class="chat__body">
+  <form [formGroup]="chatForm" (ngSubmit)="submit()" class="chat__body">
       <div class="chat__form">
-        <input type="text" placeholder="Name" />
-        <input type="email" placeholder="Email" />
-        <textarea placeholder="Question"></textarea>
+        <input type="text" placeholder="Name" formControlName="name" />
+        <input type="email" placeholder="Email" formControlName="email" />
+        <textarea placeholder="Question" formControlName="question"></textarea>
       </div>
-      <button class="chat__start-btn">Start chat</button>
-    </div>
+      <button type="submit" class="chat__start-btn" [disabled]="!chatForm.valid">Start chat</button>
+  </form>
 </div>

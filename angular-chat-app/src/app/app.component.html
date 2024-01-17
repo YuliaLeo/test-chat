@@ -1,1 +1,10 @@
-<app-start-chat-form></app-start-chat-form>
+<ng-container [ngSwitch]="step">
+  <app-start-chat-form
+    *ngSwitchCase="Step.StartChatForm"
+    (submitted)="step = Step.Chat"
+  ></app-start-chat-form>
+  <app-chat
+    *ngSwitchCase="Step.Chat"
+  ></app-chat>
+</ng-container>
+

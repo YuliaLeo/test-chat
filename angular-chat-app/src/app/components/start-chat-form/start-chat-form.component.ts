@@ -1,27 +1,32 @@
-import {Component, OnInit} from '@angular/core';
-import {ChatState} from "../../services/chat-state/chat.state";
-import {IChatConfig} from "../../interfaces/chat-config.interface";
+import {Component, EventEmitter, OnInit, Output} from '@angular/core';
+import {FormControl, FormGroup, ReactiveFormsModule, Validators} from "@angular/forms";
+import {of} from "rxjs";
 
 @Component({
   selector: 'app-start-chat-form',
   templateUrl: './start-chat-form.component.html',
   styleUrls: ['./start-chat-form.component.scss'],
   standalone: true,
-  imports: []
+  imports: [ReactiveFormsModule]
 })
 export class StartChatFormComponent implements OnInit {
-  constructor(
-    private _chatState: ChatState
-  ) {
+  @Output() public submitted: EventEmitter<boolean> = new EventEmitter<boolean>();
+
+  public chatForm!: FormGroup;
+
+  public ngOnInit() {
+    this.chatForm = new FormGroup({
+      name: new FormControl(null, Validators.required),
+      email: new FormControl(null, [Validators.required, Validators.email]),
+      question: new FormControl(null, Validators.required)
+    });
   }
 
-  ngOnInit(): void {
-    const el: HTMLElement | null = document.querySelector('.chat__start-btn');
-
-    this._chatState.config.subscribe((value: IChatConfig | null) => {
-      if (el && value) {
-        el.style.backgroundColor = value.startChatBtnColor;
-      }
-    });
+  public submit() {
+    if (this.chatForm.valid) {
+      of([]).subscribe(() => {
+        this.submitted.emit(true);
+      });
+    }
   }
 }
