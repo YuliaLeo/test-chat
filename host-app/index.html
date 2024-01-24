@@ -11,18 +11,4 @@
     <h1>My app</h1>
 </body>
 <script src="script.js" type="module"></script>
-<script type="module">
-    import {ChatWidget} from "./script.js";
-
-    const chat = new ChatWidget(
-        'http://localhost:3000',
-        document.querySelector('h1'),
-        null,
-        {
-            customStyles: {
-                '--btn-primary-color': 'green'
-            }
-        }
-    );
-</script>
 </html>
