@@ -6,9 +6,30 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Host-app</title>
+    <style>
+        #custom-template.Expanded.Mobile {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 9999;
+        }
+    </style>
 </head>
 <body>
-    <h1>My app</h1>
+    <h1>My host app</h1>
+    <button id="custom-template">Start chat</button>
 </body>
 <script src="script.js" type="module"></script>
+<script>
+    const button = document.getElementById('custom-template');
+    button.addEventListener('click', function() {
+        if (button.classList.contains('Mobile')) {
+            if (button.classList.contains('Expanded')) {
+                button.textContent = 'Start chat';
+            } else {
+                button.textContent = 'X';
+            }
+        }
+    });
+</script>
 </html>

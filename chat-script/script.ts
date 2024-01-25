@@ -5,12 +5,6 @@ export class ChatWidget {
 
     private _htmlElements: ChatHtmlElement[] = [];
 
-    private _chatContainer!: ChatContainer;
-
-    private _chatFrame!: ChatFrame;
-
-    private _chatButton!: ChatButton;
-
     private _targetOrigin: string = CHAT_TARGET_ORIGIN;
 
     private _isExpanded: boolean = false;
@@ -35,7 +29,7 @@ export class ChatWidget {
     }
 
     public show() {
-        if (!this._chatFrame) {
+        if (this._htmlElements.length === 0) {
             return;
         }
 
@@ -48,8 +42,6 @@ export class ChatWidget {
         this._setAllElements();
         this._attachAllStyles();
         this._handleMediaQuery();
-        this._sendMessageOnLoad();
-        this._startHandlingChatSize();
         this._appendElements();
     }
 
@@ -68,10 +60,23 @@ export class ChatWidget {
     }
 
     private _setAllElements() {
-        this._chatContainer = new ChatContainer(this._config.accessKey, this._hostAppStyles.container!);
-        this._chatFrame = new ChatFrame(this._targetOrigin, this._hostAppStyles.frame!);
-        this._chatButton = new ChatButton(this._hostAppStyles.button!);
-        this._htmlElements.push(this._chatContainer, this._chatFrame, this._chatButton);
+        const chatFrame = new ChatFrame({
+            url: this._targetOrigin,
+            styles: this._hostAppStyles.frame!,
+            message: this._config.generalSettings?.chatAppCssVariables
+        });
+        const chatContainer = new ChatContainer({
+            id: this._config.accessKey,
+            styles: this._hostAppStyles.container!,
+            frameEl: chatFrame.htmlElement
+        });
+        const chatButton = new ChatButton({
+            styles: this._hostAppStyles.button!,
+            clickFn: this._toggleChatSize.bind(this),
+            buttonSettings: this._config?.buttonSettings,
+            container: chatContainer.htmlElement
+        });
+        this._htmlElements.push(chatContainer, chatFrame, chatButton);
     }
 
     private _attachAllStyles() {
@@ -95,27 +100,13 @@ export class ChatWidget {
         });
     }
 
-    private _sendMessageOnLoad() {
-        const message = this._config.generalSettings?.chatAppCssVariables;
-
-        if (message) {
-            this._chatFrame.sendMessage(message);
-        }
-    }
-
-    private _startHandlingChatSize() {
-        this._chatButton.htmlElement.addEventListener('click', () => this._toggleChatSize());
-    }
-
     private _toggleChatSize() {
         this._isExpanded = !this._isExpanded;
         this._attachCorrespondingStyles();
     }
 
     private _appendElements() {
-        this._chatButton.attachTo(this._chatContainer.htmlElement);
-        this._chatContainer.htmlElement.appendChild(this._chatFrame.htmlElement);
-        document.body.appendChild(this._chatContainer.htmlElement);
+        this._htmlElements.forEach(el => el.addToDOM());
     }
 }
 
@@ -125,6 +116,8 @@ export abstract class ChatHtmlElement {
     protected abstract set(): void;
 
     protected abstract changeAppearance(deviceType: DeviceType, expandType: ExpandType): void;
+
+    public abstract addToDOM(): void;
 
     protected _styles: ElementStyles;
 
@@ -162,13 +155,26 @@ export abstract class ChatHtmlElement {
     }
 }
 
+export interface IContainerParams {
+    id: string;
+    styles: ElementStyles;
+    frameEl: HTMLElement;
+}
+
 export class ChatContainer extends ChatHtmlElement {
     protected _el!: HTMLDivElement;
 
-    constructor(id: string, styles: ElementStyles) {
-        super(styles);
-        this.set();
-        this._setParams(id);
+    private _params!: IContainerParams;
+
+    constructor(params: IContainerParams) {
+        super(params.styles);
+        this._params = params;
+        this._init();
+    }
+
+    public addToDOM() {
+        this._el.append(this._params.frameEl);
+        document.body.appendChild(this._el);
     }
 
     protected set() {
@@ -178,75 +184,97 @@ export class ChatContainer extends ChatHtmlElement {
     protected changeAppearance(deviceType: DeviceType, expandType: ExpandType) {
     }
 
-    private _setParams(id: string) {
-        this._el.id = id;
+    private _init() {
+        this.set();
+        this._setParams();
     }
+
+    private _setParams() {
+        this._el.id = this._params.id;
+    }
+}
+
+export interface IFrameParams {
+    url: string;
+    styles: ElementStyles;
+    message?: Record<string, string>;
 }
 
 export class ChatFrame extends ChatHtmlElement {
     protected _el!: HTMLIFrameElement;
 
-    constructor(url: string, styles: ElementStyles) {
-        super(styles);
-        this.set();
-        this._setParams(url);
+    private _params!: IFrameParams;
+
+    constructor(params: IFrameParams) {
+        super(params.styles);
+        this._params = params;
+        this._init();
     }
 
-    public sendMessage(message: Record<string, string>) {
-        this._el.addEventListener('load', () => {
-            this._el?.contentWindow?.postMessage(message, this._el.src);
-        });
-    }
+    protected changeAppearance(deviceType: DeviceType, expandType: ExpandType) {}
+
+    public addToDOM(): void {}
 
     protected set() {
         this._el = document.createElement('iframe');
     }
 
-    protected changeAppearance(deviceType: DeviceType, expandType: ExpandType) {
+    private _init() {
+        this.set();
+        this._setParams();
+        this._sendMessageOnLoad();
     }
 
-    private _setParams(url: string) {
-        this._el.src = url;
+    private _setParams() {
+        this._el.src = this._params.url;
     }
+
+    private _sendMessageOnLoad() {
+        if (!this._params.message) {
+            return;
+        }
+
+        this._el.addEventListener('load', () => {
+            this._el?.contentWindow?.postMessage(this._params.message, this._el.src);
+        });
+    }
+}
+
+export interface IButtonParams {
+    styles: ElementStyles;
+    clickFn: () => void;
+    buttonSettings?: IButtonSettings;
+    container?: HTMLElement;
 }
 
 export class ChatButton extends ChatHtmlElement {
     protected _el!: HTMLButtonElement;
 
-    private _buttonSettings?: IButtonSettings;
+    private _buttonParams!: IButtonParams;
 
     private _isCustom: boolean = false;
 
-    constructor(styles: ElementStyles, buttonSettings?: IButtonSettings) {
-        super(styles);
-        this._buttonSettings = buttonSettings;
+    constructor(buttonParams: IButtonParams) {
+        super(buttonParams.styles);
+        this._buttonParams = buttonParams;
         this.set();
     }
 
-    public attachTo(container: HTMLElement) {
-        if (!this._isCustom) {
-            if (this._buttonSettings?.appendBeforeEl) {
-                this._buttonSettings.appendBeforeEl.before(this._el);
-            } else if (this._buttonSettings?.appendAfterEl) {
-                this._buttonSettings.appendAfterEl.after(this._el);
-            } else {
-                container.appendChild(this._el);
-            }
-        }
-    }
-
     protected set() {
-        if (this._buttonSettings?.customTemplate) {
-            this._el = this._buttonSettings.customTemplate;
+        if (this._buttonParams?.buttonSettings?.customTemplate) {
+            this._el =  this._buttonParams.buttonSettings.customTemplate;
+            this._styles = {};
             this._isCustom = true;
-            return;
+        } else {
+            this._el = document.createElement('button');
         }
 
-        this._el = document.createElement('button');
+        this._el.addEventListener('click', () => this._buttonParams.clickFn());
     }
 
     protected changeAppearance(deviceType: DeviceType, expandType: ExpandType) {
         if (this._isCustom) {
+            this._el.className = '';
             this._el.classList.add(deviceType, expandType);
             return;
         }
@@ -256,7 +284,19 @@ export class ChatButton extends ChatHtmlElement {
             return;
         }
 
-        this._el.innerHTML = this._buttonSettings?.innerText! || DEFAULT_BUTTON_SETTINGS.innerText!;
+        this._el.innerHTML =  this._buttonParams?.buttonSettings?.innerText || DEFAULT_BUTTON_SETTINGS.innerText!;
+    }
+
+    public addToDOM(): void {
+        if (!this._isCustom) {
+            if (this._buttonParams?.buttonSettings?.appendBeforeEl) {
+                this._buttonParams?.buttonSettings.appendBeforeEl.before(this._el);
+            } else if (this._buttonParams?.buttonSettings?.appendAfterEl) {
+                this._buttonParams?.buttonSettings.appendAfterEl.after(this._el);
+            } else {
+                this._buttonParams?.container?.prepend(this._el);
+            }
+        }
     }
 }
 
