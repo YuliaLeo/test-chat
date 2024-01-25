@@ -1,124 +1,21 @@
-const CHAT_TARGET_ORIGIN = 'http://localhost:4200';
-const DEFAULT_HOST_APP_STYLES = {
-    containerStyles: {
-        common: {
-            'position': 'fixed',
-            'display': 'flex',
-            'flex-direction': 'column',
-            'align-items': 'center',
-        },
-        desktop: {
-            'bottom': '0',
-            'right': '30px',
-            'width': 'auto',
-            'height': 'auto',
-        },
-        desktopExtended: {
-            'bottom': '0',
-            'right': '30px',
-            'width': 'auto',
-            'height': 'auto',
-        },
-        mobile: {
-            'bottom': '0',
-            'right': '20px',
-            'width': 'auto',
-            'height': 'auto',
-        },
-        mobileExtended: {
-            'bottom': '0',
-            'right': '0',
-            'width': '100%',
-            'height': '100%',
-        }
-    },
-    frameStyles: {
-        common: {
-            'border': 'none',
-        },
-        desktop: {
-            'height': '0',
-            'width': '0',
-            'visibility': 'hidden',
-            'display': 'none',
-        },
-        desktopExtended: {
-            'width': '400px',
-            'height': '500px',
-            'visibility': 'visible',
-            'display': 'block',
-        },
-        mobile: {
-            'height': '0',
-            'width': '0',
-            'visibility': 'hidden',
-            'display': 'none',
-        },
-        mobileExtended: {
-            'width': '100%',
-            'height': '100%',
-            'visibility': 'visible',
-            'display': 'block',
-        }
-    },
-    mobileBreakPoint: 768
-};
-const DEFAULT_BUTTON_SETTINGS = {
-    innerText: 'Chat',
-    styles: {
-        common: {
-            'border': 'none',
-            'font-size': '16px',
-            'font-family': 'Arial, Helvetica, sans-serif',
-            'cursor': 'pointer'
-        },
-        desktop: {
-            'position': 'static',
-            'width': '80px',
-            'height': '40px',
-            'border-radius': '10px',
-            'background-color': '#4caf50',
-            'color': 'white',
-        },
-        desktopExtended: {
-            'position': 'static',
-            'width': '80px',
-            'height': '40px',
-            'border-radius': '10px',
-            'background-color': '#4caf50',
-            'color': 'white',
-        },
-        mobile: {
-            'position': 'static',
-            'width': '70px',
-            'height': '40px',
-            'font-size': '18px',
-            'border-radius': '5px',
-            'background-color': '#4caf50',
-            'color': 'white',
-        },
-        mobileExtended: {
-            'position': 'fixed',
-            'top': '10px',
-            'right': '10px',
-            'width': '20px',
-            'height': '20px',
-            'font-size': '20px',
-            'border-radius': '0',
-            'background-color': 'transparent',
-            'color': '#000',
-        }
-    }
-};
 export class ChatWidget {
     _config;
+    _hostAppStyles;
+    _htmlElements = [];
     _chatContainer;
     _chatFrame;
     _chatButton;
-    _hostAppStyles;
-    _buttonStyles;
     _targetOrigin = CHAT_TARGET_ORIGIN;
     _isExpanded = false;
+    get _isMobile() {
+        return window.innerWidth <= this._hostAppStyles.mobileBreakPoint;
+    }
+    get _getDeviceType() {
+        return this._isMobile ? DeviceType.Mobile : DeviceType.Desktop;
+    }
+    get _getExpandType() {
+        return this._isExpanded ? ExpandType.Expanded : ExpandType.NotExpanded;
+    }
     constructor(config) {
         this._config = config;
         this._init();
@@ -130,173 +27,291 @@ export class ChatWidget {
         this._toggleChatSize();
     }
     _init() {
-        this._chatContainer = this._getChatContainer();
-        this._chatFrame = this._getChatFrame();
-        this._chatButton = this._getChatButton();
         this._hostAppStyles = this._getHostAppStyles();
-        this._buttonStyles = this._getScreenSettings(this._config.buttonSettings?.styles, DEFAULT_BUTTON_SETTINGS.styles);
+        this._setAllElements();
         this._attachAllStyles();
-        this._attachFrameInitialStyles();
         this._handleMediaQuery();
         this._sendMessageOnLoad();
         this._startHandlingChatSize();
         this._appendElements();
     }
-    _getChatContainer() {
-        const chatContainer = document.createElement('div');
-        chatContainer.id = this._config.accessKey;
-        return chatContainer;
-    }
-    _getChatFrame() {
-        const chatFrame = document.createElement('iframe');
-        chatFrame.src = this._targetOrigin;
-        return chatFrame;
-    }
-    _getChatButton() {
-        const buttonTemplate = this._config.buttonSettings?.customTemplate;
-        if (!buttonTemplate) {
-            const chatButton = document.createElement('button');
-            chatButton.innerHTML = this._config.buttonSettings?.innerText || DEFAULT_BUTTON_SETTINGS.innerText;
-            return chatButton;
-        }
-        return buttonTemplate;
-    }
     _getHostAppStyles() {
+        const userStyles = this._config.generalSettings?.hostAppStyles;
+        const containerStyles = userStyles?.container || DEFAULT_HOST_APP_STYLES.container || {};
+        const frameStyles = userStyles?.frame || DEFAULT_HOST_APP_STYLES.frame || {};
+        const buttonStyles = userStyles?.button || DEFAULT_HOST_APP_STYLES.button || {};
         return {
-            containerStyles: this._getScreenSettings(this._config.generalSettings?.hostAppStyles?.containerStyles, DEFAULT_HOST_APP_STYLES.containerStyles),
-            frameStyles: this._getScreenSettings(this._config.generalSettings?.hostAppStyles?.frameStyles, DEFAULT_HOST_APP_STYLES.frameStyles),
-            mobileBreakPoint: this._config.generalSettings?.hostAppStyles?.mobileBreakPoint
-                || DEFAULT_HOST_APP_STYLES.mobileBreakPoint
+            container: containerStyles,
+            frame: frameStyles,
+            button: buttonStyles,
+            mobileBreakPoint: userStyles?.mobileBreakPoint || DEFAULT_HOST_APP_STYLES.mobileBreakPoint
         };
     }
-    _getScreenSettings(configSettings, constSettings) {
-        return {
-            common: configSettings?.common || constSettings?.common,
-            desktop: configSettings?.desktop || constSettings?.desktop,
-            mobile: configSettings?.mobile || constSettings?.mobile,
-            desktopExtended: configSettings?.desktopExtended || constSettings?.desktopExtended,
-            mobileExtended: configSettings?.mobileExtended || constSettings?.mobileExtended,
-        };
+    _setAllElements() {
+        this._chatContainer = new ChatContainer(this._config.accessKey, this._hostAppStyles.container);
+        this._chatFrame = new ChatFrame(this._targetOrigin, this._hostAppStyles.frame);
+        this._chatButton = new ChatButton(this._hostAppStyles.button);
+        this._htmlElements.push(this._chatContainer, this._chatFrame, this._chatButton);
     }
     _attachAllStyles() {
         this._attachCommonStyles();
-        this._attachScreenStyles(this._isMobile());
+        this._attachCorrespondingStyles();
     }
     _attachCommonStyles() {
-        this._attachStyles(this._chatContainer, this._hostAppStyles.containerStyles?.common);
-        this._attachStyles(this._chatFrame, this._hostAppStyles.frameStyles?.common);
-        this._attachStyles(this._chatButton, this._buttonStyles.common);
+        this._htmlElements.forEach(el => el.setCommonStyles());
     }
-    _attachScreenStyles(isMobile) {
-        if (isMobile) {
-            if (this._isExpanded) {
-                this._attachMobileExpandedStyles();
-            }
-            else {
-                this._attachMobileStyles();
-            }
-        }
-        else {
-            if (this._isExpanded) {
-                this._attachDesktopExpandedStyles();
-            }
-            else {
-                this._attachDesktopStyles();
-            }
-        }
-    }
-    _isMobile() {
-        return window.innerWidth <= this._hostAppStyles.mobileBreakPoint;
-    }
-    _attachStyles(el, styles) {
-        Object.keys(styles).forEach(key => {
-            el.style.setProperty(key, styles[key]);
-        });
-    }
-    _attachFrameInitialStyles() {
-        this._chatFrame.style.display = 'none';
-        this._chatFrame.style.visibility = 'hidden';
+    _attachCorrespondingStyles() {
+        this._htmlElements.forEach(el => el.setCorrespondingStyles(this._getDeviceType, this._getExpandType));
     }
     _handleMediaQuery() {
-        const mediaQuery = window.matchMedia(`(max-width: ${this._hostAppStyles.mobileBreakPoint}px)`);
-        mediaQuery.addEventListener('change', (e) => {
-            this._attachScreenStyles(e.matches);
+        window.addEventListener('resize', () => {
+            this._htmlElements.forEach(el => {
+                el.setCorrespondingStyles(this._getDeviceType, this._getExpandType);
+            });
         });
     }
     _sendMessageOnLoad() {
         const message = this._config.generalSettings?.chatAppCssVariables;
         if (message) {
-            this._chatFrame.addEventListener('load', () => {
-                this._chatFrame.contentWindow?.postMessage(message, this._targetOrigin);
-            });
+            this._chatFrame.sendMessage(message);
         }
     }
     _startHandlingChatSize() {
-        this._chatButton.addEventListener('click', () => this._toggleChatSize());
+        this._chatButton.htmlElement.addEventListener('click', () => this._toggleChatSize());
     }
     _toggleChatSize() {
-        if (this._isExpanded) {
-            this._chatFrame.style.visibility = 'hidden';
-            this._chatFrame.style.display = 'none';
-            if (this._isMobile()) {
-                this._attachMobileStyles();
-            }
-            else {
-                this._attachDesktopStyles();
-            }
-        }
-        else {
-            this._chatFrame.style.visibility = 'visible';
-            this._chatFrame.style.display = 'block';
-            if (this._isMobile()) {
-                this._attachMobileExpandedStyles();
-            }
-            else {
-                this._attachDesktopExpandedStyles();
-            }
-        }
         this._isExpanded = !this._isExpanded;
-    }
-    _attachMobileStyles() {
-        this._attachStyles(this._chatContainer, this._hostAppStyles.containerStyles?.mobile);
-        this._attachStyles(this._chatFrame, this._hostAppStyles.frameStyles?.mobile);
-        this._attachStyles(this._chatButton, this._buttonStyles.mobile);
-        this._chatButton.innerText = this._config.buttonSettings?.innerText || DEFAULT_BUTTON_SETTINGS.innerText;
-    }
-    _attachDesktopStyles() {
-        this._attachStyles(this._chatContainer, this._hostAppStyles.containerStyles?.desktop);
-        this._attachStyles(this._chatFrame, this._hostAppStyles.frameStyles?.desktop);
-        this._attachStyles(this._chatButton, this._buttonStyles.desktop);
-        this._chatButton.innerText = this._config.buttonSettings?.innerText || DEFAULT_BUTTON_SETTINGS.innerText;
-    }
-    _attachMobileExpandedStyles() {
-        this._attachStyles(this._chatContainer, this._hostAppStyles.containerStyles?.mobileExtended);
-        this._attachStyles(this._chatFrame, this._hostAppStyles.frameStyles?.mobileExtended);
-        this._attachStyles(this._chatButton, this._buttonStyles.mobileExtended);
-        this._chatButton.innerText = '×';
-    }
-    _attachDesktopExpandedStyles() {
-        this._attachStyles(this._chatContainer, this._hostAppStyles.containerStyles?.desktopExtended);
-        this._attachStyles(this._chatFrame, this._hostAppStyles.frameStyles?.desktopExtended);
-        this._attachStyles(this._chatButton, this._buttonStyles.desktopExtended);
-        this._chatButton.innerText = this._config.buttonSettings?.innerText || DEFAULT_BUTTON_SETTINGS.innerText;
+        this._attachCorrespondingStyles();
     }
     _appendElements() {
-        this._attachButton();
-        this._chatContainer.appendChild(this._chatFrame);
-        document.body.appendChild(this._chatContainer);
+        this._chatButton.attachTo(this._chatContainer.htmlElement);
+        this._chatContainer.htmlElement.appendChild(this._chatFrame.htmlElement);
+        document.body.appendChild(this._chatContainer.htmlElement);
     }
-    _attachButton() {
-        if (!this._config.buttonSettings?.customTemplate) {
-            if (this._config.buttonSettings?.appendBeforeEl) {
-                this._config.buttonSettings.appendBeforeEl.before(this._chatButton);
+}
+export class ChatHtmlElement {
+    _styles;
+    get htmlElement() {
+        return this._el;
+    }
+    constructor(styles) {
+        this._styles = styles;
+    }
+    setCommonStyles() {
+        this._attachStyles(StyleKey.Common);
+    }
+    setCorrespondingStyles(deviceType, expandType) {
+        const commonStyleKey = `${deviceType}${StyleKey.Common}`;
+        const styleKey = `${deviceType}${expandType}`;
+        this.changeAppearance(deviceType, expandType);
+        this._attachStyles(commonStyleKey);
+        this._attachStyles(styleKey);
+    }
+    _attachStyles(styleKey) {
+        const styles = this._styles[styleKey];
+        if (!styles) {
+            return;
+        }
+        Object.keys(styles).forEach(key => {
+            this._el.style.setProperty(key, styles[key]);
+        });
+    }
+}
+export class ChatContainer extends ChatHtmlElement {
+    _el;
+    constructor(id, styles) {
+        super(styles);
+        this.set();
+        this._setParams(id);
+    }
+    set() {
+        this._el = document.createElement('div');
+    }
+    changeAppearance(deviceType, expandType) {
+    }
+    _setParams(id) {
+        this._el.id = id;
+    }
+}
+export class ChatFrame extends ChatHtmlElement {
+    _el;
+    constructor(url, styles) {
+        super(styles);
+        this.set();
+        this._setParams(url);
+    }
+    sendMessage(message) {
+        this._el.addEventListener('load', () => {
+            this._el?.contentWindow?.postMessage(message, this._el.src);
+        });
+    }
+    set() {
+        this._el = document.createElement('iframe');
+    }
+    changeAppearance(deviceType, expandType) {
+    }
+    _setParams(url) {
+        this._el.src = url;
+    }
+}
+export class ChatButton extends ChatHtmlElement {
+    _el;
+    _buttonSettings;
+    _isCustom = false;
+    constructor(styles, buttonSettings) {
+        super(styles);
+        this._buttonSettings = buttonSettings;
+        this.set();
+    }
+    attachTo(container) {
+        if (!this._isCustom) {
+            if (this._buttonSettings?.appendBeforeEl) {
+                this._buttonSettings.appendBeforeEl.before(this._el);
             }
-            else if (this._config.buttonSettings?.appendAfterEl) {
-                this._config.buttonSettings.appendAfterEl.after(this._chatButton);
+            else if (this._buttonSettings?.appendAfterEl) {
+                this._buttonSettings.appendAfterEl.after(this._el);
             }
             else {
-                this._chatContainer.appendChild(this._chatButton);
+                container.appendChild(this._el);
             }
         }
     }
+    set() {
+        if (this._buttonSettings?.customTemplate) {
+            this._el = this._buttonSettings.customTemplate;
+            this._isCustom = true;
+            return;
+        }
+        this._el = document.createElement('button');
+    }
+    changeAppearance(deviceType, expandType) {
+        if (this._isCustom) {
+            this._el.classList.add(deviceType, expandType);
+            return;
+        }
+        if (deviceType === DeviceType.Mobile && expandType === ExpandType.Expanded) {
+            this._el.innerHTML = 'X';
+            return;
+        }
+        this._el.innerHTML = this._buttonSettings?.innerText || DEFAULT_BUTTON_SETTINGS.innerText;
+    }
 }
+export var DeviceType;
+(function (DeviceType) {
+    DeviceType["Desktop"] = "Desktop";
+    DeviceType["Mobile"] = "Mobile";
+})(DeviceType || (DeviceType = {}));
+export var ExpandType;
+(function (ExpandType) {
+    ExpandType["Expanded"] = "Expanded";
+    ExpandType["NotExpanded"] = "NotExpanded";
+})(ExpandType || (ExpandType = {}));
+export var StyleKey;
+(function (StyleKey) {
+    StyleKey["Common"] = "Common";
+    StyleKey["DesktopCommon"] = "DesktopCommon";
+    StyleKey["DesktopExpanded"] = "DesktopExpanded";
+    StyleKey["DesktopNotExpanded"] = "DesktopNotExpanded";
+    StyleKey["MobileExpanded"] = "MobileExpanded";
+    StyleKey["MobileNotExpanded"] = "MobileNotExpanded";
+    StyleKey["MobileCommon"] = "MobileCommon";
+})(StyleKey || (StyleKey = {}));
+export const CHAT_TARGET_ORIGIN = 'http://localhost:4200';
+export const DEFAULT_HOST_APP_STYLES = {
+    container: {
+        Common: {
+            'position': 'fixed',
+            'display': 'flex',
+            'flex-direction': 'column',
+            'align-items': 'center',
+        },
+        DesktopCommon: {
+            'bottom': '0',
+            'right': '30px',
+            'width': 'auto',
+            'height': 'auto',
+        },
+        MobileCommon: {
+            'bottom': '0',
+        },
+        MobileExpanded: {
+            'right': '0',
+            'width': '100%',
+            'height': '100%',
+        },
+        MobileNotExpanded: {
+            'right': '20px',
+            'width': 'auto',
+            'height': 'auto',
+        },
+    },
+    frame: {
+        Common: {
+            'border': 'none',
+        },
+        DesktopExpanded: {
+            'width': '400px',
+            'height': '500px',
+            'visibility': 'visible',
+            'display': 'block',
+        },
+        DesktopNotExpanded: {
+            'height': '0',
+            'width': '0',
+            'visibility': 'hidden',
+            'display': 'none',
+        },
+        MobileExpanded: {
+            'width': '100%',
+            'height': '100%',
+            'visibility': 'visible',
+            'display': 'block',
+        },
+        MobileNotExpanded: {
+            'height': '0',
+            'width': '0',
+            'visibility': 'hidden',
+            'display': 'none',
+        },
+    },
+    button: {
+        Common: {
+            'border': 'none',
+            'font-size': '16px',
+            'font-family': 'Arial, Helvetica, sans-serif',
+            'cursor': 'pointer'
+        },
+        DesktopCommon: {
+            'position': 'static',
+            'width': '80px',
+            'height': '40px',
+            'border-radius': '10px',
+            'background-color': '#4caf50',
+            'color': 'white',
+        },
+        MobileExpanded: {
+            'position': 'fixed',
+            'top': '10px',
+            'right': '10px',
+            'width': '20px',
+            'height': '20px',
+            'font-size': '20px',
+            'border-radius': '0',
+            'background-color': 'transparent',
+            'color': '#000',
+        },
+        MobileNotExpanded: {
+            'position': 'static',
+            'width': '70px',
+            'height': '40px',
+            'font-size': '18px',
+            'border-radius': '5px',
+            'background-color': '#4caf50',
+            'color': 'white',
+        },
+    },
+    mobileBreakPoint: 768
+};
+export const DEFAULT_BUTTON_SETTINGS = {
+    innerText: 'Chat',
+};
