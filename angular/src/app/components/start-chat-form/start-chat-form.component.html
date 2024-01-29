@@ -1,0 +1,8 @@
+<form [formGroup]="chatForm" (ngSubmit)="submit()" class="start-chat">
+    <div class="start-chat__body">
+        <input formControlName="name" class="start-chat__input" type="text" placeholder="Name"  />
+        <input formControlName="email" class="start-chat__input" type="email" placeholder="Email"  />
+        <textarea formControlName="question" class="start-chat__textarea" placeholder="Question" ></textarea>
+    </div>
+    <button type="submit" class="start-chat__btn" [disabled]="!chatForm.valid">Start Angular chat</button>
+</form>

@@ -1,0 +1,16 @@
+<div class="chat">
+    <h1 class="chat__header">Angular Test Chat</h1>
+    <div class="chat__messages">
+        <div *ngFor="let message of messages" class="message">
+            <div class="message__header">
+              <span class="message__author">{{message.author}}</span>
+              <span class="message__timestamp">{{message.timestamp}}</span>
+            </div>
+            <div class="message__text">{{message.text}}</div>
+        </div>
+    </div>
+    <div class="chat__new-message new-message">
+        <input type="text" placeholder="Type here..." class="new-message__input" [(ngModel)]="newMessage" />
+        <button class="new-message__btn" (click)="sendMessage()">Send</button>
+    </div>
+</div>

@@ -24,12 +24,34 @@
     const button = document.getElementById('custom-template');
     button.addEventListener('click', function() {
         if (button.classList.contains('Mobile')) {
-            if (button.classList.contains('Expanded')) {
-                button.textContent = 'Start chat';
-            } else {
-                button.textContent = 'X';
+            if (button.classList.contains('NotExpanded')) {
+                button.innerHTML = 'X';
+                return
             }
         }
+
+        button.innerHTML = 'Start chat';
     });
+    window.addEventListener('resize', function() {
+        if (button.classList.contains('Mobile')) {
+            if (button.classList.contains('Expanded')) {
+                button.innerHTML = 'X';
+                return
+            }
+        }
+
+        button.innerHTML = 'Start chat';
+    });
+
+    function openChat() {
+        if (button.classList.contains('Mobile')) {
+            if (button.classList.contains('Expanded')) {
+                button.innerHTML = 'X';
+                return
+            }
+        }
+
+        button.innerHTML = 'Start chat';
+    }
 </script>
 </html>
